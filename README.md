@@ -10,3 +10,9 @@
 * BTC(Binance): 0xdd32aeb94bac5b36eebfae322c174280c6dec49d
 * Zeph(Tradepgre): ZEPHsCQK7HxEuRP8pwNNQ4DhnGCJEyo9RKgtcrRAdGFNHCUhfP1Kpfxj2oTJkFkerY1cVoTeCnscEhcy9exD5oZUbXSmGSJe9nq
 * RTC(xeggex): RisZ9viLY8jsULoB9a1xxdxAZAV5LLyboj
+
+# Pool
+
+* Luckpool: <https://luckpool.net/verus/miner.html>
+* RPlant: <https://pool.rplant.xyz/>
+* Unmineable: <https://unmineable.com/coins>
