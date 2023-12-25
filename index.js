@@ -5,29 +5,43 @@ const { message } = require("telegraf/filters");
 const si = require("systeminformation");
 const check = require("check-types");
 const exec = require("child_process").exec;
+const spawn = require("child_process").spawn;
+const sleep = require("sleep-promise");
 
 const token = process.env.TOKEN;
 const bot = new Telegraf(token);
+
 let _ctx = null;
+let _thread = null;
+let _pid = null;
 
 bot.start((ctx) => ctx.reply("Welcome"));
 bot.help((ctx) => ctx.reply("Send me a sticker"));
 bot.on(message("sticker"), (ctx) => ctx.reply("👍"));
 
 bot.command("worker", (ctx) => {
+  console.log("xxxxxxxxxxxxxxxxxxxxxxxxxxx worker");
   ctx.sendMessage(`Worker name: ${process.env.WORKER_NAME}`);
 });
 
-bot.command("hwInfo", (ctx) => {
+bot.command("hw", (ctx) => {
+  console.log("xxxxxxxxxxxxxxxxxxxxxxxxxxx hw");
   handleCommand(ctx, 1);
 });
 
-bot.command("hwAlert", (ctx) => {
+bot.command("alert", (ctx) => {
+  console.log("xxxxxxxxxxxxxxxxxxxxxxxxxxx alert");
   handleCommand(ctx, 2);
 });
 
-bot.command("mining", (ctx) => {
+bot.command("kill", (ctx) => {
+  console.log("xxxxxxxxxxxxxxxxxxxxxxxxxxx kill");
   handleCommand(ctx, 3);
+});
+
+bot.command("mining", (ctx) => {
+  console.log("xxxxxxxxxxxxxxxxxxxxxxxxxxx mining");
+  handleCommand(ctx, 4);
 });
 
 bot.hears("hi", (ctx) => ctx.reply("Hey there"));
@@ -53,7 +67,10 @@ async function handleCommand(ctx, type) {
         hwInfoAlert(ctx);
         break;
       case 3:
-        handleMining(ctx);
+        handleMining(ctx, 0);
+        break;
+      case 4:
+        handleMining(ctx, 1);
         break;
 
       default:
@@ -71,17 +88,24 @@ async function handleCommand(ctx, type) {
   }
 })();
 
-function execCommand(cmd) {
+function execCommand(cmd, ctx) {
   return new Promise((resolve, reject) => {
     try {
-      exec(cmd, (error, stdout, stderr) => {
-        if (stdout !== null) {
-          resolve(stdout);
-        }
-        if (error !== null) {
-          reject(error);
-        }
+      const ls = spawn(cmd);
+      ls.stdout.on("data", (data) => {
+        console.log(`stdout: ${data}`);
       });
+      ls.stderr.on("data", (data) => {
+        console.log(`stderr: ${data}`);
+      });
+      ls.on("error", (error) => {
+        console.log(`error: ${error.message}`);
+      });
+      ls.on("close", (code) => {
+        console.log(`child process exited with code ${code}`);
+        process.exit();
+      });
+      resolve(ls.pid);
     } catch (e) {
       console.error(e);
       reject(null);
@@ -92,7 +116,7 @@ function execCommand(cmd) {
 function getHardwareInfo() {
   return new Promise(async (resolve, reject) => {
     try {
-      let hw = "*** Hardware Info *** \n";
+      let hw = "*** Worker Info *** \n";
       hw += "------------------------------------------------------------------------------------------- \n";
       hw += `| Worker: ${process.env.WORKER_NAME} \n`;
 
@@ -146,27 +170,39 @@ function hwInfoAlert(ctx) {
   }
 }
 
-async function handleMining(ctx, coin) {
+function test(cmd) {
+  return spawn(cmd, { detached: true });
+}
+
+async function handleMining(ctx, type, coin) {
   try {
-    const payload = ctx.payload;
-    const params = payload.split("-");
-    console.log(params);
+    // const payload = ctx.payload;
+    // const params = payload.split("-");
+    // console.log(params);
 
+    let cmd = "";
+    switch (type) {
+      case 0:
+        const kill = await execCommand("./pm2/stop.sh");
+        console.log("==================================== 0");
+        console.log(kill);
+        console.log("====================================");
+        ctx.sendMessage("Kill process success");
+        break;
+      case 1:
+        // const run = await execCommand("./pm2/restart.sh", ctx);
+        const run = await execCommand("./XMRig/linux/bonk.sh", ctx);
+        console.log("==================================== 1");
+        console.log(run);
+        console.log("====================================");
+        ctx.sendMessage("Worker is mining...");
+        break;
 
-  const user = 'root';
-  const password = '12345';
-  const c = 'ls /root';
-  const cmd = '"sudo", [`-S <<< '${password}'`, '-u', user, 'bash', '-c', `'${c}'`]'
-
-    const resp = await execCommand("./XMRig/linux/bonk.sh");
-    console.log("==================================== handleMining");
-    console.log(resp);
-    console.log("====================================");
+      default:
+        console.log("xxxxxxxxxxxxxxxxxxxxxxxx 2");
+        break;
+    }
   } catch (e) {
     console.error(e);
   }
 }
-
-
-
-
