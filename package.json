@@ -1,0 +1,19 @@
+{
+  "name": "tele-bot",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "nodemon .index.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "check-types": "^11.2.3",
+    "child_process": "^1.0.2",
+    "dotenv": "^16.3.1",
+    "nodemon": "^3.0.2",
+    "systeminformation": "^5.21.21",
+    "telegraf": "^4.15.3"
+  }
+}

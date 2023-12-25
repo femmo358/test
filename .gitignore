@@ -1,2 +1,4 @@
-
-/xmrig/
+xmrig/
+node_modules/
+.env
+package-lock.json
