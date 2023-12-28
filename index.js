@@ -4,46 +4,27 @@ const { Telegraf } = require("telegraf");
 const { message } = require("telegraf/filters");
 const si = require("systeminformation");
 const check = require("check-types");
-const exec = require("child_process").exec;
 const spawn = require("child_process").spawn;
 const sleep = require("sleep-promise");
 
 const token = process.env.TOKEN;
-const bot = new Telegraf(token);
+const time = process.env.TIME;
+const bot = new Telegraf(token, { polling: true });
 
 let _ctx = null;
-let _thread = null;
-let _pid = null;
+let _interval = null;
+const _coin = {
+  bonk: "../test/XMRig/linux/bonk.sh",
+  rtc: "../test/XMRig/linux/rtc.sh",
+  zeph: "../test/XMRig/linux/zeph.sh",
+};
 
-bot.start((ctx) => ctx.reply("Welcome"));
+bot.start((ctx) => ctx.reply("Welcome fee-mining-bot"));
 bot.help((ctx) => ctx.reply("Send me a sticker"));
 bot.on(message("sticker"), (ctx) => ctx.reply("👍"));
-
-bot.command("worker", (ctx) => {
-  console.log("xxxxxxxxxxxxxxxxxxxxxxxxxxx worker");
-  ctx.sendMessage(`Worker name: ${process.env.WORKER_NAME}`);
+bot.on("message", (ctx) => {
+  return handleCommand(ctx);
 });
-
-bot.command("hw", (ctx) => {
-  console.log("xxxxxxxxxxxxxxxxxxxxxxxxxxx hw");
-  handleCommand(ctx, 1);
-});
-
-bot.command("alert", (ctx) => {
-  console.log("xxxxxxxxxxxxxxxxxxxxxxxxxxx alert");
-  handleCommand(ctx, 2);
-});
-
-bot.command("kill", (ctx) => {
-  console.log("xxxxxxxxxxxxxxxxxxxxxxxxxxx kill");
-  handleCommand(ctx, 3);
-});
-
-bot.command("mining", (ctx) => {
-  console.log("xxxxxxxxxxxxxxxxxxxxxxxxxxx mining");
-  handleCommand(ctx, 4);
-});
-
 bot.hears("hi", (ctx) => ctx.reply("Hey there"));
 bot.launch();
 
@@ -51,64 +32,148 @@ bot.launch();
 process.once("SIGINT", () => bot.stop("SIGINT"));
 process.once("SIGTERM", () => bot.stop("SIGTERM"));
 
-/**
- *
- * @param {*} ctx
- * @param {*} type 1: hwinfo, 2: alert, 3: mining
- */
-async function handleCommand(ctx, type) {
-  _ctx = ctx;
-  try {
-    switch (type) {
-      case 1:
-        ctx.sendMessage(await getHardwareInfo());
-        break;
-      case 2:
-        hwInfoAlert(ctx);
-        break;
-      case 3:
-        handleMining(ctx, 0);
-        break;
-      case 4:
-        handleMining(ctx, 1);
-        break;
-
-      default:
-        break;
-    }
-  } catch (e) {
-    ctx.sendMessage("xxxxxxxxxxxxxxxxxxxxxxxxxxx");
-  }
-}
-
 (async () => {
   try {
+    console.log("====================================");
+    console.log("Fee Mining Bot Started !");
+    console.log("====================================");
   } catch (e) {
     console.error(e);
   }
 })();
 
-function execCommand(cmd, ctx) {
+async function handleCommand(ctx) {
+  _ctx = ctx;
+  try {
+    const txt = ctx.update.message.text;
+    const param = txt.split(" ");
+    const avg1 = param[0];
+    const avg2 = param[1];
+    const avg3 = param[2];
+    let flag = false;
+    let cmd = null;
+    let params = null;
+    let msg = ">>>> NONE !";
+
+    console.table({
+      avg1,
+      avg2,
+      avg3,
+    });
+
+    if (!check.emptyString(avg1)) {
+      switch (avg1) {
+        case "/worker":
+          ctx.sendMessage(`>>>> Worker name: ${process.env.WORKER_NAME}`);
+          flag = true;
+          break;
+        case "/hw":
+          ctx.sendMessage(await getHardwareInfo());
+          flag = true;
+          break;
+        case "/alert":
+          if (check.equal(avg2, "off")) {
+            clearInterval(_interval);
+            ctx.sendMessage(">>>> Turn off alert");
+          } else {
+            hwInfoAlert(ctx);
+            ctx.sendMessage(">>>> Turn on alert");
+          }
+          flag = true;
+          break;
+        case "/list":
+          ctx.sendMessage(await getPM2List());
+          flag = true;
+          break;
+        case "/mining":
+          if (!check.emptyString(avg2)) {
+            cmd = "./pm2/start.sh";
+            if (check.equal(avg2, "rtc")) {
+              params = _coin.rtc;
+            } else if (check.equal(avg2, "bonk")) {
+              params = _coin.bonk;
+            } else if (check.equal(avg2, "zeph")) {
+              params = _coin.zeph;
+            } else {
+              params = _coin.rtc;
+            }
+            msg = ">>>> Worker starting !";
+          } else {
+            cmd = null;
+          }
+          flag = true;
+          break;
+        case "/restart":
+          cmd = "./pm2/restart.sh";
+          params = avg2 ? avg2 : "1";
+          msg = ">>>> Worker restart !";
+          break;
+        case "/stop":
+          cmd = "./pm2/stop.sh";
+          params = avg2 ? avg2 : "1";
+          msg = ">>>> Worker stopped !";
+          break;
+        case "/reboot":
+          cmd = "./pm2/reboot.sh";
+          msg = ">>>> Reboot success !";
+          break;
+        case "/shutdown":
+          cmd = "./pm2/shutdown.sh";
+          msg = ">>>> Shutdown success !";
+          break;
+
+        default:
+          flag = false;
+          break;
+      }
+
+      if (!check.maybe.null(cmd)) {
+        const task = await execCommand(cmd, params);
+        if (check.equal(task, true)) {
+          ctx.sendMessage(msg);
+        } else {
+          ctx.sendMessage(">>>> FAILED !");
+        }
+      } else {
+        if (check.equal(flag, false)) {
+          ctx.sendMessage(">>>> Welcome to fee mining bot !");
+        }
+        return;
+      }
+    } else {
+      ctx.sendMessage(">>>> NOT working");
+      return;
+    }
+  } catch (e) {
+    console.log("==================================== handleCommand");
+    console.log(e);
+    console.log("====================================");
+    ctx.sendMessage(">>>> NOT support");
+    return;
+  }
+}
+
+function execCommand(cmd, params) {
   return new Promise((resolve, reject) => {
     try {
-      const ls = spawn(cmd);
+      const ls = spawn(cmd, [`${params}`]);
       ls.stdout.on("data", (data) => {
         console.log(`stdout: ${data}`);
+        resolve(true);
       });
       ls.stderr.on("data", (data) => {
         console.log(`stderr: ${data}`);
+        resolve(false);
       });
       ls.on("error", (error) => {
         console.log(`error: ${error.message}`);
+        resolve(false);
       });
-      ls.on("close", (code) => {
-        console.log(`child process exited with code ${code}`);
-        process.exit();
-      });
-      resolve(ls.pid);
     } catch (e) {
-      console.error(e);
-      reject(null);
+      console.log("==================================== execCommand");
+      console.log(e);
+      console.log("====================================");
+      reject(false);
     }
   });
 }
@@ -128,16 +193,15 @@ function getHardwareInfo() {
       hw += `| Mainboard: ${board.model} \n`;
 
       const cpu = await si.cpu();
-      hw += `| CPU: ${cpu.brand} \n`;
+      hw += `| CPU model: ${cpu.brand} \n`;
 
-      const speed = await si.cpuCurrentSpeed();
-      const percent = parseInt((speed.avg / cpu.speedMax) * 100);
-      hw += `| CPU: ${percent} %\n`;
+      const percent = await si.currentLoad();
+      hw += `| CPU: ${percent.currentLoad.toFixed(1)} %\n`;
 
       const temp = await si.cpuTemperature();
-      let hwTemp = `| Temperature: \n| - `;
-      hwTemp += `main: ${temp.main} °C \n| - `;
-      hwTemp += `chipset: ${temp.chipset} °C \n| - `;
+      let hwTemp = `| Temperature: \n|      - `;
+      hwTemp += `main: ${temp.main} °C \n|      - `;
+      hwTemp += `chipset: ${temp.chipset} °C \n|      - `;
       hwTemp += `cores: ${JSON.stringify(temp.cores)} °C \n`;
       hw += hwTemp;
       hw += "------------------------------------------------------------------------------------------- \n";
@@ -148,61 +212,53 @@ function getHardwareInfo() {
 
       resolve(hw);
     } catch (e) {
-      console.error(e);
-      reject(null);
+      console.log("==================================== getHardwareInfo");
+      console.log(e);
+      console.log("====================================");
+      reject("NaN");
     }
   });
 }
 
 function hwInfoAlert(ctx) {
-  let interval = null;
   try {
-    interval = setInterval(async () => {
+    _interval = setInterval(async () => {
       if (ctx) {
         ctx.sendMessage(await getHardwareInfo());
       } else {
         _ctx.sendMessage(await getHardwareInfo());
       }
-    }, 10000); // 10s
+    }, time); // 15p
   } catch (e) {
-    console.error(e);
-    clearInterval(interval);
+    console.log("==================================== hwInfoAlert");
+    console.log(e);
+    console.log("====================================");
+    clearInterval(_interval);
   }
 }
 
-function test(cmd) {
-  return spawn(cmd, { detached: true });
-}
+function getPM2List() {
+  return new Promise((resolve, reject) => {
+    try {
+      const ls = spawn("./pm2/list.sh");
 
-async function handleMining(ctx, type, coin) {
-  try {
-    // const payload = ctx.payload;
-    // const params = payload.split("-");
-    // console.log(params);
-
-    let cmd = "";
-    switch (type) {
-      case 0:
-        const kill = await execCommand("./pm2/stop.sh");
-        console.log("==================================== 0");
-        console.log(kill);
-        console.log("====================================");
-        ctx.sendMessage("Kill process success");
-        break;
-      case 1:
-        // const run = await execCommand("./pm2/restart.sh", ctx);
-        const run = await execCommand("./XMRig/linux/bonk.sh", ctx);
-        console.log("==================================== 1");
-        console.log(run);
-        console.log("====================================");
-        ctx.sendMessage("Worker is mining...");
-        break;
-
-      default:
-        console.log("xxxxxxxxxxxxxxxxxxxxxxxx 2");
-        break;
+      ls.stdout.on("data", (data) => {
+        console.log(`stdout: ${data}`);
+        resolve(data.toString());
+      });
+      ls.stderr.on("data", (data) => {
+        console.log(`stderr: ${data}`);
+        resolve(">>>> NaN");
+      });
+      ls.on("error", (error) => {
+        console.log(`error: ${error.message}`);
+        resolve(">>>> NaN");
+      });
+    } catch (e) {
+      console.log("==================================== execCommand");
+      console.log(e);
+      console.log("====================================");
+      resolve(">>>> NaN");
     }
-  } catch (e) {
-    console.error(e);
-  }
+  });
 }
