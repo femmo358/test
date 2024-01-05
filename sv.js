@@ -76,13 +76,36 @@ async function handleCommand(ctx) {
       avg3,
     });
 
+    if (!check.undefined(avg1)) {
+      console.log("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 1");
+      switch (avg1) {
+        case "/worker":
+          ctx.sendMessage(`>>>> Worker name: ${_workerName}`);
+          isResponse = true;
+          break;
+        case "/hw":
+          ctx.sendMessage(await getHardwareInfo());
+          isResponse = true;
+          break;
+        case "/list":
+          ctx.sendMessage(await getPM2List());
+          isResponse = true;
+          break;
+
+        default:
+          isResponse = false;
+          break;
+      }
+      return;
+    }
+
     if (!check.equal(avg2, _workerName)) {
-      ctx.sendMessage(`${_workerName} >>>> No event handling`);
+      ctx.sendMessage(`${_workerName} >>>> No event handling !`);
       return;
     }
 
     if (!check.undefined(avg1) && !check.undefined(avg2) && !check.undefined(avg3)) {
-      console.log("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 1");
+      console.log("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 2");
 
       switch (avg1) {
         case "/alert":
@@ -130,16 +153,16 @@ async function handleCommand(ctx) {
       isProcessed = true;
     }
 
-    if (!check.undefined(avg1) && !check.undefined(avg2) && check.equal(isProcessed, false)) {
-      console.log("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 2");
+    if (check.equal(isProcessed, false) && !check.undefined(avg1) && !check.undefined(avg2)) {
+      console.log("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 3");
       switch (avg1) {
         case "/reboot":
           cmd = "./pm2/reboot.sh";
-          msg = `${_workerName}>>>> Reboot success !`;
+          msg = `${_workerName} >>>> Reboot after 1 minutes !`;
           break;
         case "/shutdown":
           cmd = "./pm2/shutdown.sh";
-          msg = `${_workerName}>>>> Shutdown success !`;
+          msg = `${_workerName} >>>> Shutdown after 1 minutes !`;
           break;
 
         default:
@@ -148,28 +171,6 @@ async function handleCommand(ctx) {
           break;
       }
       isProcessed = true;
-    }
-
-    if (!check.undefined(avg1) && check.equal(isProcessed, false)) {
-      console.log("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 3");
-      switch (avg1) {
-        case "/worker":
-          ctx.sendMessage(`>>>> Worker name: ${_workerName}`);
-          isResponse = true;
-          break;
-        case "/hw":
-          ctx.sendMessage(await getHardwareInfo());
-          isResponse = true;
-          break;
-        case "/list":
-          ctx.sendMessage(await getPM2List());
-          isResponse = true;
-          break;
-
-        default:
-          isResponse = false;
-          break;
-      }
     }
 
     if (check.maybe.null(cmd)) {
