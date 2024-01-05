@@ -23,6 +23,7 @@ _help += `| woker: [/worker] Get worker name \n`;
 _help += `| hw: [/hw] Get hardware info \n`;
 _help += `| list: [/list] Get pm2 list \n`;
 _help += `| mining: [/mining] [worker name] [coin] \n`;
+_help += `| alert: [/alert] [worker name] [on/off] \n`;
 _help += `| stop: [/stop] [worker name] [coin] \n`;
 _help += `| restart: [/restart] [worker name] [coin] \n`;
 _help += `| reboot: [/reboot] [worker name] \n`;
