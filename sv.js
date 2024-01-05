@@ -6,6 +6,7 @@ const si = require("systeminformation");
 const check = require("check-types");
 const spawn = require("child_process").spawn;
 const sleep = require("sleep-promise");
+const { log } = require("console");
 
 const _time = process.env.TIME;
 const _workerName = process.env.WORKER_NAME;
@@ -96,7 +97,8 @@ async function handleCommand(ctx) {
           isResponse = false;
           break;
       }
-      return;
+
+      if (check.equal(isResponse, true)) return;
     }
 
     if (!check.equal(avg2, _workerName)) {
@@ -116,7 +118,7 @@ async function handleCommand(ctx) {
             hwInfoAlert(ctx);
             msg = `${_workerName} >>>> Turn on alert time: ${_time / 60000} minutes`;
           }
-          isResponse = true;
+          isResponse = false;
           break;
         case "/mining":
           cmd = "./pm2/start.sh";
@@ -176,6 +178,8 @@ async function handleCommand(ctx) {
     if (check.maybe.null(cmd)) {
       if (check.equal(isResponse, false)) {
         ctx.sendMessage(msg);
+      } else {
+        console.log("?????????????????????");
       }
     } else {
       const task = await execCommand(cmd, params);
