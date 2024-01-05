@@ -7,11 +7,8 @@ const check = require("check-types");
 const spawn = require("child_process").spawn;
 const sleep = require("sleep-promise");
 
-const token = process.env.TOKEN;
-const time = process.env.TIME;
-const workerName = process.env.WORKER_NAME;
-const bot = new Telegraf(token, { polling: true });
-
+const _time = process.env.TIME;
+const _workerName = process.env.WORKER_NAME;
 let _ctx = null;
 let _interval = null;
 const _coin = {
@@ -20,9 +17,24 @@ const _coin = {
   rtc: "../test/XMRig/linux/rtc.sh",
   zeph: "../test/XMRig/linux/zeph.sh",
 };
+let _help = `******* Command List ******* \n`;
+_help += `| woker: [/worker] Get worker name \n`;
+_help += `| hw: [/hw] Get hardware info \n`;
+_help += `| list: [/list] Get pm2 list \n`;
+_help += `| mining: [/mining] [worker name] [coin] \n`;
+_help += `| stop: [/stop] [worker name] [coin] \n`;
+_help += `| restart: [/restart] [worker name] [coin] \n`;
+_help += `| reboot: [/reboot] [worker name] \n`;
+_help += `| shutdown: [/shutdown] [worker name] \n`;
+_help += "*****************************";
+
+const token = process.env.TOKEN;
+const bot = new Telegraf(token, { polling: true });
 
 bot.start((ctx) => ctx.reply("Welcome fee-mining-bot"));
-bot.help((ctx) => ctx.reply("Send me a sticker"));
+bot.help((ctx) => {
+  ctx.reply(_help);
+});
 bot.on(message("sticker"), (ctx) => ctx.reply("👍"));
 bot.on("message", (ctx) => {
   return handleCommand(ctx);
@@ -52,10 +64,11 @@ async function handleCommand(ctx) {
     const avg1 = param[0];
     const avg2 = param[1];
     const avg3 = param[2];
-    let flag = false;
+    let isResponse = false;
+    let isProcessed = false;
     let cmd = null;
     let params = null;
-    let msg = ">>>> NONE !";
+    let msg = ">>>> Wrong command !";
 
     console.table({
       avg1,
@@ -63,97 +76,119 @@ async function handleCommand(ctx) {
       avg3,
     });
 
-    if (!check.emptyString(avg1)) {
+    if (!check.equal(avg2, _workerName)) {
+      ctx.sendMessage(`${_workerName} >>>> No event handling`);
+      return;
+    }
+
+    if (!check.undefined(avg1) && !check.undefined(avg2) && !check.undefined(avg3)) {
+      console.log("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 1");
+
       switch (avg1) {
-        case "/worker":
-          ctx.sendMessage(`>>>> Worker name: ${workerName}`);
-          flag = true;
-          break;
-        case "/hw":
-          ctx.sendMessage(await getHardwareInfo());
-          flag = true;
-          break;
         case "/alert":
-          if (check.equal(avg2, "off")) {
+          if (check.equal(avg3, "off")) {
             clearInterval(_interval);
-            ctx.sendMessage(">>>> Turn off alert");
+            msg = `${_workerName} >>>> Turn off alert`;
           } else {
             hwInfoAlert(ctx);
-            ctx.sendMessage(">>>> Turn on alert");
+            msg = `${_workerName} >>>> Turn on alert time: ${_time / 60000} minutes`;
           }
-          flag = true;
-          break;
-        case "/list":
-          ctx.sendMessage(await getPM2List());
-          flag = true;
+          isResponse = true;
           break;
         case "/mining":
-          if (!check.emptyString(avg2)) {
-            cmd = "./pm2/start.sh";
-            msg = ">>>> Worker starting !";
-            if (check.equal(avg2, "rtc")) {
-              params = _coin.rtc;
-            } else if (check.equal(avg2, "bonk")) {
-              params = _coin.bonk;
-            } else if (check.equal(avg2, "zeph")) {
-              params = _coin.zeph;
-            } else {
-              cmd = null;
-              flag = false;
-            }
+          cmd = "./pm2/start.sh";
+          msg = `${_workerName}>>>> Worker starting !`;
+          if (check.equal(avg3, "rtc")) {
+            params = _coin.rtc;
+          } else if (check.equal(avg3, "bonk")) {
+            params = _coin.bonk;
+          } else if (check.equal(avg3, "zeph")) {
+            params = _coin.zeph;
           } else {
             cmd = null;
-            msg = ">>>> Wrong cmd !";
+            isResponse = false;
+            msg = `${_workerName}>>>> Arguments wrong !`;
           }
-          flag = true;
           break;
         case "/restart":
           cmd = "./pm2/restart.sh";
-          params = avg2 ? avg2 : "1";
-          msg = ">>>> Worker restart !";
+          params = avg3 ? avg3 : "1";
+          msg = `${_workerName}>>>> Worker restart !`;
           break;
         case "/stop":
           cmd = "./pm2/stop.sh";
-          params = avg2 ? avg2 : "1";
-          msg = ">>>> Worker stopped !";
-          break;
-        case "/reboot":
-          cmd = "./pm2/reboot.sh";
-          msg = ">>>> Reboot success !";
-          break;
-        case "/shutdown":
-          cmd = "./pm2/shutdown.sh";
-          msg = ">>>> Shutdown success !";
+          params = avg3 ? avg3 : "1";
+          msg = `${_workerName}>>>> Worker stopped !`;
           break;
 
         default:
-          flag = false;
+          cmd = null;
+          isResponse = false;
+          msg = `${_workerName}>>>> Arguments wrong !`;
           break;
       }
+      isProcessed = true;
+    }
 
-      if (!check.maybe.null(cmd)) {
-        const task = await execCommand(cmd, params);
-        if (check.equal(task, true)) {
-          ctx.sendMessage(msg);
-        } else {
-          ctx.sendMessage(">>>> FAILED !");
-        }
-      } else {
-        if (check.equal(flag, false)) {
-          ctx.sendMessage(">>>> Welcome to fee mining bot !");
-        } else {
-          ctx.sendMessage(">>>> WRONG command");
-        }
+    if (!check.undefined(avg1) && !check.undefined(avg2) && check.equal(isProcessed, false)) {
+      console.log("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 2");
+      switch (avg1) {
+        case "/reboot":
+          cmd = "./pm2/reboot.sh";
+          msg = `${_workerName}>>>> Reboot success !`;
+          break;
+        case "/shutdown":
+          cmd = "./pm2/shutdown.sh";
+          msg = `${_workerName}>>>> Shutdown success !`;
+          break;
+
+        default:
+          cmd = null;
+          isResponse = false;
+          break;
+      }
+      isProcessed = true;
+    }
+
+    if (!check.undefined(avg1) && check.equal(isProcessed, false)) {
+      console.log("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 3");
+      switch (avg1) {
+        case "/worker":
+          ctx.sendMessage(`>>>> Worker name: ${_workerName}`);
+          isResponse = true;
+          break;
+        case "/hw":
+          ctx.sendMessage(await getHardwareInfo());
+          isResponse = true;
+          break;
+        case "/list":
+          ctx.sendMessage(await getPM2List());
+          isResponse = true;
+          break;
+
+        default:
+          isResponse = false;
+          break;
+      }
+    }
+
+    if (check.maybe.null(cmd)) {
+      if (check.equal(isResponse, false)) {
+        ctx.sendMessage(msg);
       }
     } else {
-      ctx.sendMessage(">>>> NOT working");
-      return;
+      const task = await execCommand(cmd, params);
+      if (check.equal(task, true)) {
+        ctx.sendMessage(msg);
+      } else {
+        ctx.sendMessage(`${_workerName} >>>> FAILED !`);
+      }
     }
   } catch (e) {
     console.log("==================================== handleCommand");
     console.log(e);
     console.log("====================================");
-    ctx.sendMessage(">>>> NOT support");
+    ctx.sendMessage(`${_workerName} >>>> ERROR`);
     return;
   }
 }
@@ -173,7 +208,7 @@ function execCommand(cmd, params) {
       });
       ls.stderr.on("data", (data) => {
         console.log(`##### stderr: ${data}`);
-        resolve(false);
+        resolve(true);
       });
       ls.on("error", (error) => {
         console.log(`xxxxx error: ${error.message}`);
@@ -238,8 +273,13 @@ function hwInfoAlert(ctx) {
       } else {
         _ctx.sendMessage(await getHardwareInfo());
       }
-    }, time); // 15p
+    }, _time); // 15p
   } catch (e) {
+    if (ctx) {
+      ctx.sendMessage(`${_workerName} turn on alert FAILED !`);
+    } else {
+      _ctx.sendMessage(`${_workerName} turn on alert FAILED !`);
+    }
     console.log("==================================== hwInfoAlert");
     console.log(e);
     console.log("====================================");
