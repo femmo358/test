@@ -90,6 +90,7 @@ async function handleCommand(ctx) {
         case "/mining":
           if (!check.emptyString(avg2)) {
             cmd = "./pm2/start.sh";
+            msg = ">>>> Worker starting !";
             if (check.equal(avg2, "rtc")) {
               params = _coin.rtc;
             } else if (check.equal(avg2, "bonk")) {
@@ -97,9 +98,9 @@ async function handleCommand(ctx) {
             } else if (check.equal(avg2, "zeph")) {
               params = _coin.zeph;
             } else {
-              params = _coin.test;
+              cmd = null;
+              flag = false;
             }
-            msg = ">>>> Worker starting !";
           } else {
             cmd = null;
             msg = ">>>> Wrong cmd !";
@@ -140,8 +141,9 @@ async function handleCommand(ctx) {
       } else {
         if (check.equal(flag, false)) {
           ctx.sendMessage(">>>> Welcome to fee mining bot !");
+        } else {
+          ctx.sendMessage(">>>> WRONG command");
         }
-        return;
       }
     } else {
       ctx.sendMessage(">>>> NOT working");
