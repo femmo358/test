@@ -6,7 +6,7 @@ const si = require("systeminformation");
 const check = require("check-types");
 const spawn = require("child_process").spawn;
 const sleep = require("sleep-promise");
-const { log } = require("console");
+const pm2 = require("pm2");
 
 const _time = process.env.TIME;
 const _workerName = process.env.WORKER_NAME;
@@ -122,8 +122,6 @@ async function handleCommand(ctx) {
           isResponse = false;
           break;
         case "/mining":
-          cmd = "./pm2/start.sh";
-          msg = `${_workerName}>>>> Worker starting !`;
           if (check.equal(avg3, "rtc")) {
             params = _coin.rtc;
           } else if (check.equal(avg3, "bonk")) {
@@ -135,16 +133,22 @@ async function handleCommand(ctx) {
             isResponse = false;
             msg = `${_workerName}>>>> Arguments wrong !`;
           }
+
+          isResponse = false;
+          msg = await execPM2(avg1, params);
           break;
         case "/restart":
-          cmd = "./pm2/restart.sh";
           params = avg3 ? avg3 : "1";
-          msg = `${_workerName}>>>> Worker restart !`;
+          msg = await execPM2(avg1, params);
           break;
         case "/stop":
-          cmd = "./pm2/stop.sh";
           params = avg3 ? avg3 : "1";
-          msg = `${_workerName}>>>> Worker stopped !`;
+          msg = await execPM2(avg1, params);
+          break;
+
+        case "/delete":
+          params = avg3 ? avg3 : "1";
+          msg = await execPM2(avg1, params);
           break;
 
         default:
@@ -229,6 +233,60 @@ function execCommand(cmd, params) {
   });
 }
 
+function execPM2(avg1, avg2) {
+  return new Promise((resolve, reject) => {
+    try {
+      switch (avg1) {
+        case "/mining":
+          pm2.start(avg2, (err, res) => {
+            if (err) {
+              resolve(`${_workerName} >>>> PM2 start FAILED !`);
+            } else {
+              resolve(`${_workerName} >>>> PM2 start [${res[0].pm2_env.name}] SUCCESS !`);
+            }
+          });
+          break;
+        case "/stop":
+          pm2.stop(avg2, (err, res) => {
+            if (err) {
+              resolve(`${_workerName} >>>> PM2 stop [${avg2}] FAILED !`);
+            } else {
+              resolve(`${_workerName} >>>> PM2 stop [${res[0].name}] SUCCESS !`);
+            }
+          });
+          break;
+        case "/restart":
+          pm2.restart(avg2, (err, res) => {
+            if (err) {
+              resolve(`${_workerName} >>>> PM2 restart [${avg2}] FAILED !`);
+            } else {
+              resolve(`${_workerName} >>>> PM2 restart [${res[0].name}] SUCCESS !`);
+            }
+          });
+          break;
+        case "/delete":
+          pm2.delete(avg2, (err, res) => {
+            if (err) {
+              resolve(`${_workerName} >>>> PM2 delete [${avg2}] FAILED !`);
+            } else {
+              resolve(`${_workerName} >>>> PM2 delete [${avg2}] SUCCESS !`);
+            }
+          });
+          break;
+
+        default:
+          resolve(`${_workerName} >>>> PM2 non !`);
+          break;
+      }
+    } catch (e) {
+      console.log("==================================== execPM2");
+      console.log(e);
+      console.log("====================================");
+      reject(`${_workerName} >>>> PM2 non !`);
+    }
+  });
+}
+
 function getHardwareInfo() {
   return new Promise(async (resolve, reject) => {
     try {
@@ -296,25 +354,29 @@ function hwInfoAlert(ctx) {
 function getPM2List() {
   return new Promise((resolve, reject) => {
     try {
-      const ls = spawn("./pm2/list.sh");
+      pm2.list((err, list) => {
+        if (err) {
+          resolve(`${_workerName} >>>> Get pm2 list FAILED !`);
+        } else {
+          let data = "*** PM2 List *** \n";
+          list.forEach((el, i) => {
+            data += "--------------------------------- \n";
+            data += `| - Index: ${i} \n`;
+            data += `|      + Name: ${el.name} \n`;
+            data += `|      + Status: ${el.pm2_env.status} \n`;
+            data += `|      + CPU: ${el.monit.cpu} % \n`;
+            data += `|      + RAM: ${el.monit.memory} Mb \n`;
+            data += "--------------------------------- \n";
+          });
 
-      ls.stdout.on("data", (data) => {
-        console.log(`stdout: ${data}`);
-        resolve(data.toString());
-      });
-      ls.stderr.on("data", (data) => {
-        console.log(`stderr: ${data}`);
-        resolve(">>>> NaN");
-      });
-      ls.on("error", (error) => {
-        console.log(`error: ${error.message}`);
-        resolve(">>>> NaN");
+          resolve(data);
+        }
       });
     } catch (e) {
-      console.log("==================================== execCommand");
+      console.log("==================================== getPM2List");
       console.log(e);
       console.log("====================================");
-      resolve(">>>> NaN");
+      reject(`${_workerName} >>>> Get pm2 list FAILEsD !`);
     }
   });
 }
